@@ -39,11 +39,60 @@ Both I²C breakouts (Adafruit ICM-20948, GY-906) have onboard pull-ups, so no
 extra resistors are needed. The I²C bus runs at **100 kHz** — the MLX90614 is
 SMBus and won't tolerate faster.
 
-Pins are defined in [`src/config.h`](src/config.h); change them in one place.
+Pins are defined in [`arduino/multi_sensor/config.h`](arduino/multi_sensor/config.h); change them in one place.
 
 ---
 
-## 2. Flash the firmware (PlatformIO)
+## 2. Build & flash the firmware — pick one toolchain
+
+The firmware lives in [`arduino/multi_sensor/`](arduino/multi_sensor/) as a
+plain Arduino sketch. All three toolchains below compile that same folder, so
+you only need one of them. **Board settings that matter in every case:** board
+= *ESP32C3 Dev Module*, and **USB CDC On Boot = Enabled** (this is what makes
+`Serial` the USB port on the Super Mini — without it the PC sees nothing).
+
+> **Disk space:** the ESP32 compiler toolchain (~a few hundred MB) is needed by
+> every option. The savings come from *how* it's managed: **arduino-cli** keeps
+> one shared core under `~/.arduino15` with no per-project build tree, whereas
+> PlatformIO stores a per-platform copy under `~/.platformio` (often 1–2 GB)
+> plus a `.pio/` folder in each project. If you're tight on space, use Option B.
+
+### Option A — Arduino IDE (GUI)
+
+1. **Add ESP32 support:** *File → Preferences → Additional Boards Manager URLs*,
+   add `https://espressif.github.io/arduino-esp32/package_esp32_index.json`,
+   then *Tools → Board → Boards Manager* → install **esp32 by Espressif**.
+2. **Libraries:** *Tools → Manage Libraries* → install **Adafruit ICM20X** and
+   **Adafruit MLX90614 Library** (click *Install all* when it offers to add
+   their dependencies, e.g. Adafruit BusIO + Unified Sensor).
+3. Open `arduino/multi_sensor/multi_sensor.ino`.
+4. *Tools* → Board = **ESP32C3 Dev Module**, **USB CDC On Boot = Enabled**,
+   Port = your COM port → click **Upload**.
+
+### Option B — arduino-cli (lightest, scriptable)
+
+```bash
+# one-time: install the shared ESP32 core (used by every sketch)
+arduino-cli config init
+arduino-cli config add board_manager.additional_urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+arduino-cli core update-index
+arduino-cli core install esp32:esp32
+
+# one-time: libraries (dependencies are pulled in automatically)
+arduino-cli lib install "Adafruit ICM20X" "Adafruit MLX90614 Library"
+
+# build (from the project root) — the :CDCOnBoot=cdc flag = "USB CDC On Boot: Enabled"
+arduino-cli compile --fqbn esp32:esp32:esp32c3:CDCOnBoot=cdc arduino/multi_sensor
+
+# find the port, then flash
+arduino-cli board list
+arduino-cli upload -p COM5 --fqbn esp32:esp32:esp32c3:CDCOnBoot=cdc arduino/multi_sensor
+
+# optional: watch the raw serial stream
+arduino-cli monitor -p COM5 -c baudrate=115200
+```
+
+### Option C — PlatformIO
 
 ```bash
 # from the project root (where platformio.ini lives)
@@ -52,12 +101,18 @@ pio run -t upload       # build + flash over USB
 pio device monitor      # optional: watch the raw serial stream
 ```
 
-In VS Code with the PlatformIO extension you can use the ✓ (build) and →
-(upload) buttons instead.
+`platformio.ini` sets `src_dir = arduino/multi_sensor` so PlatformIO builds the
+same sketch; the USB-CDC build flags are already in there. In VS Code you can
+use the ✓ (build) and → (upload) buttons instead.
 
-**First upload tip:** if the board isn't detected, hold **BOOT**, tap/replug,
-then release, and upload again. If PlatformIO picks the wrong port, set
-`upload_port` / `monitor_port` in `platformio.ini`.
+**To reclaim PlatformIO's space later:** uninstall the PlatformIO VS Code
+extension and delete the `~/.platformio` folder
+(`C:\Users\<you>\.platformio`), or run `pio system prune -f` to clear caches.
+
+---
+
+**First upload tip (any option):** if the board isn't detected, hold **BOOT**,
+tap/replug, then release, and upload again.
 
 On boot the device prints a metadata block, e.g.:
 
@@ -120,7 +175,7 @@ so you keep full fidelity; convert to volts on the PC with
 
 ## 5. Tuning
 
-Edit [`src/config.h`](src/config.h) and re-flash:
+Edit [`arduino/multi_sensor/config.h`](arduino/multi_sensor/config.h) and re-flash:
 
 - `SAMPLE_RATE_HZ` — base rate. 100 Hz is comfortable for PPG/HR and IMU motion;
   the 100 kHz I²C bus and ICM magnetometer cap practical rates near ~100–150 Hz.
@@ -135,10 +190,11 @@ Edit [`src/config.h`](src/config.h) and re-flash:
 - **`mlx90614=MISSING` or temp = `nan`/`-273`** — I²C wiring/pull-ups, or the
   bus crept above 100 kHz.
 - **PPG/GSR pinned at 4095** — sensor powered from 5 V; move it to 3V3.
-- **No data / garbage on the PC** — confirm the firmware built with
-  `ARDUINO_USB_CDC_ON_BOOT` (set in `platformio.ini`) and that you opened the
-  right port. The board may reset when the port opens — you'll see the `#`
-  banner reprint, which is normal.
+- **No data / garbage on the PC** — the firmware must be built with USB CDC on
+  boot: *USB CDC On Boot = Enabled* in Arduino IDE, `:CDCOnBoot=cdc` in the
+  arduino-cli FQBN, or the `ARDUINO_USB_CDC_ON_BOOT` flag (already in
+  `platformio.ini`). Also confirm you opened the right port. The board may reset
+  when the port opens — you'll see the `#` banner reprint, which is normal.
 - **`overruns` climbing in `# stats`** — the tick can't finish in time; lower
   `SAMPLE_RATE_HZ`.
 - **Wrong COM port chosen** — `python record.py --list`, then pass `--port`.
@@ -148,11 +204,15 @@ Edit [`src/config.h`](src/config.h) and re-flash:
 ## Layout
 
 ```
-platformio.ini        PlatformIO project + library pins
-src/
-  config.h            pin map, sample rates, I2C settings
-  main.cpp            sampling loop + CSV-over-USB output
+platformio.ini                 PlatformIO config (points src_dir at the sketch)
+arduino/
+  multi_sensor/
+    multi_sensor.ino           sampling loop + CSV-over-USB output
+    config.h                   pin map, sample rates, I2C settings
 pc/
-  record.py           serial -> CSV logger + live dashboard
+  record.py                    serial -> CSV logger + live dashboard
   requirements.txt
 ```
+
+The firmware is one Arduino sketch built by any of Arduino IDE, arduino-cli, or
+PlatformIO — there's a single copy of the code, not one per toolchain.
