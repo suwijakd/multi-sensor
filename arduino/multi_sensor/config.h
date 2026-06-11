@@ -1,7 +1,7 @@
 #pragma once
 // ---------------------------------------------------------------------------
 // Hardware + sampling configuration for the ESP32-C3 Super Mini.
-// Change pins/rates here; main.cpp reads everything from this file.
+// Change pins/rates here; the sketch reads everything from this file.
 // ---------------------------------------------------------------------------
 
 // ---- Pin map (ESP32-C3 Super Mini) ----------------------------------------

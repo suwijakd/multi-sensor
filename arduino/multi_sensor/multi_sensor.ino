@@ -10,6 +10,9 @@
 // Each tick we sample PPG + GSR + IMU; the slow temperature sensor is read on a
 // decimated schedule and its last value is held. One CSV line is emitted per
 // tick over native USB CDC; the PC-side script timestamps and stores it.
+//
+// This single sketch builds with Arduino IDE, arduino-cli, OR PlatformIO
+// (platformio.ini points src_dir at this folder). See README.md.
 // ===========================================================================
 #include <Arduino.h>
 #include <Wire.h>
@@ -43,7 +46,7 @@ static char line[256];
 
 // Emit a metadata block. Lines starting with '#' are comments the PC ignores
 // for data purposes (but prints to the console).
-static void emitMeta() {
+void emitMeta() {
   Serial.println(F("# multi-sensor wearable logger"));
   Serial.printf("# sample_rate_hz=%d temp_rate_hz=%d\n", SAMPLE_RATE_HZ, TEMP_RATE_HZ);
   Serial.printf("# icm20948=%s mlx90614=%s\n",
