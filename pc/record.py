@@ -11,6 +11,7 @@ Examples
     python record.py --port COM14          # pick the port explicitly
     python record.py --no-plot             # headless logging only
     python record.py --labels "r=rest,a=active,s=squat"   # custom marker keys
+    python record.py --protocol "rest:60,active:60,rest:60,active:60"  # auto-marked
     python record.py --list                # just list serial ports and exit
 
 Event markers
@@ -19,6 +20,15 @@ With the plot window focused, press a label key (default `r`=rest, `a`=active)
 to start a labelled state, or <space> for a one-off timestamp mark. In
 --no-plot mode, type the key (or a full custom label) and press Enter; type
 `s` for status, `q` to quit.
+
+Guided protocol
+---------------
+--protocol "rest:60,active:60,..." runs a timed schedule, auto-marking each
+phase transition (no human reaction lag) and showing a live countdown in the
+plot title. --protocol-reps N repeats the whole sequence; --lead-in gives a
+"get ready" countdown first. By default recording stops when the protocol ends
+(--no-autostop keeps it running). The phases reuse the marker system, so each
+becomes a `state` label in the data + events files exactly like a manual press.
 
 Each session writes two files:
   * session_*.csv         — one row per sample, with a trailing `label` column
@@ -95,6 +105,59 @@ def parse_labels(spec):
     return label_map
 
 
+def flush_stale_input(ser, seconds=0.5):
+    """Discard the stale prefix from a board that's been running unconnected.
+
+    Opening the C3's USB Serial/JTAG port does NOT reset the chip, so a board
+    left powered keeps streaming; the firmware drops rows with no listener, but
+    its TX buffer still holds an old banner + early samples. Reading those first
+    would put junk rows and a huge `seq`/time gap at the start of the recording.
+    Drain them so we begin on live data (clean t0, no phantom drops). Returns the
+    number of stale data rows discarded; `#` lines seen are printed so the boot
+    banner / sensor status stays visible."""
+    ser.reset_input_buffer()
+    end = time.monotonic() + seconds
+    discarded = 0
+    while time.monotonic() < end:
+        raw = ser.readline()
+        if not raw:
+            continue
+        line = raw.decode("utf-8", errors="ignore").strip()
+        if line.startswith("#"):
+            print(line)
+        elif line:
+            discarded += 1
+    return discarded
+
+
+def parse_protocol(spec, reps=1):
+    """Parse 'rest:60,active:30' into [(label, seconds), ...], repeated `reps`
+    times. Returns None (after printing why) on a malformed spec."""
+    phases = []
+    for item in spec.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        label, sep, secs = item.partition(":")
+        label = label.strip()
+        if not sep:
+            print(f"[protocol] bad phase '{item}' (expected label:seconds)")
+            return None
+        try:
+            secs = float(secs)
+        except ValueError:
+            print(f"[protocol] bad duration in '{item}'")
+            return None
+        if not label or secs <= 0:
+            print(f"[protocol] bad phase '{item}' (need a label and positive seconds)")
+            return None
+        phases.append((label, secs))
+    if not phases:
+        print("[protocol] empty schedule")
+        return None
+    return phases * max(1, reps)
+
+
 # --------------------------------------------------------------------------- #
 # Background reader: serial -> CSV file + in-memory ring buffers + markers
 # --------------------------------------------------------------------------- #
@@ -116,6 +179,13 @@ class Recorder:
         self.t0_us = None
         self.current_label = ""   # persistent state, written into every data row
         self.events = []          # [{t_us, label, kind}] for the live dashboard
+        # Guided-protocol display state: set by the protocol thread, read by the UI.
+        self.proto_active = False
+        self.proto_done = False
+        self.proto_idx = 0
+        self.proto_n = 0
+        self.proto_label = ""
+        self.proto_end = 0.0      # time.monotonic() deadline of the current phase
         self.start_time = time.time()
 
     def run(self):
@@ -203,6 +273,18 @@ class Recorder:
         with self.lock:
             return {c: list(self.buffers[c]) for c in COLUMNS}
 
+    def protocol_banner(self):
+        """Short live status string for the protocol, or '' if none is running."""
+        if not self.proto_active:
+            return ""
+        if self.proto_done:
+            return "PROTOCOL complete"
+        remaining = max(0.0, self.proto_end - time.monotonic())
+        if self.proto_idx == 0:  # lead-in
+            return f"PROTOCOL: {self.proto_label}  {remaining:4.0f}s"
+        return (f"PROTOCOL {self.proto_idx}/{self.proto_n}: "
+                f"{self.proto_label}  {remaining:4.0f}s left")
+
     def stop(self):
         self.stop_event.set()
 
@@ -230,6 +312,51 @@ def console_loop(rec, label_map):
             rec.mark(label_map[cmd.strip()], kind="state")
         else:
             rec.mark(cmd.strip(), kind="state")  # full custom label
+
+
+# --------------------------------------------------------------------------- #
+# Guided protocol: run a timed schedule and auto-mark each transition
+# --------------------------------------------------------------------------- #
+def protocol_loop(rec, schedule, lead_in, autostop):
+    total = sum(d for _, d in schedule)
+    print(f"[protocol] {len(schedule)} phases, ~{total:.0f}s total"
+          + (f" (+{lead_in:.0f}s lead-in)" if lead_in > 0 else "")
+          + (", auto-stops at end" if autostop else ""))
+    for i, (label, dur) in enumerate(schedule, 1):
+        print(f"           {i:>2}. {label:<12}{dur:>5.0f}s")
+
+    rec.proto_active = True
+    rec.proto_n = len(schedule)
+
+    def wait_until(deadline):
+        """Sleep until the deadline; return True if recording was stopped early."""
+        while time.monotonic() < deadline:
+            if rec.stop_event.is_set():
+                return True
+            time.sleep(0.05)
+        return False
+
+    if lead_in > 0:
+        rec.proto_idx, rec.proto_label = 0, "get ready"
+        rec.proto_end = time.monotonic() + lead_in
+        if wait_until(rec.proto_end):
+            return
+
+    for i, (label, dur) in enumerate(schedule, 1):
+        if rec.stop_event.is_set():
+            return
+        rec.proto_idx, rec.proto_label = i, label
+        rec.proto_end = time.monotonic() + dur
+        rec.mark(label, kind="state")          # auto-marker at the phase boundary
+        if wait_until(rec.proto_end):
+            return
+
+    rec.proto_done = True
+    rec.mark("protocol_end", kind="mark")
+    rec.current_label = ""                      # stop labelling any trailing data
+    print("[protocol] complete.")
+    if autostop:
+        rec.stop()
 
 
 # --------------------------------------------------------------------------- #
@@ -269,8 +396,8 @@ def run_dashboard(rec, window_seconds, label_map):
 
     fig, axes = plt.subplots(4, 1, sharex=True, figsize=(10, 8))
     keyhelp = "  ".join(f"[{k}] {v}" for k, v in label_map.items())
-    fig.suptitle(f"Multi-sensor live   |   markers: {keyhelp}  [space] mark   "
-                 "(close window to stop)", fontsize=10)
+    base_title = f"markers: {keyhelp}  [space] mark   (close window to stop)"
+    suptitle = fig.suptitle(base_title, fontsize=10)
     ax_ppg, ax_gsr, ax_acc, ax_tmp = axes
 
     (l_ppg,) = ax_ppg.plot([], [], lw=0.8)
@@ -309,6 +436,8 @@ def run_dashboard(rec, window_seconds, label_map):
     fig.canvas.mpl_connect("key_press_event", on_key)
 
     def update():
+        banner = rec.protocol_banner()
+        suptitle.set_text((banner + "      |      " if banner else "") + base_title)
         snap = rec.snapshot()
         t_us = snap["t_us"]
         if not t_us:
@@ -366,6 +495,12 @@ def run_dashboard(rec, window_seconds, label_map):
             print("[plot] dashboard loop error:")
             traceback.print_exc()
 
+    # Close the window promptly (e.g. when the protocol auto-stops the session).
+    try:
+        plt.close(fig)
+    except Exception:
+        pass
+
 
 # --------------------------------------------------------------------------- #
 def main():
@@ -376,8 +511,19 @@ def main():
     ap.add_argument("--no-plot", action="store_true", help="log only, no live dashboard")
     ap.add_argument("--window", type=float, default=15.0, help="dashboard time window (seconds)")
     ap.add_argument("--rate-hz", type=float, default=100.0, help="expected sample rate (sizes the plot buffer)")
+    ap.add_argument("--flush-seconds", type=float, default=0.5,
+                    help="drain stale buffered data on connect before recording (0 to disable)")
     ap.add_argument("--labels", default="r=rest,a=active",
                     help="marker keys, e.g. \"r=rest,a=active,s=squat\"")
+    ap.add_argument("--protocol",
+                    help='guided timed schedule, e.g. "rest:60,active:60,rest:60"; '
+                         "auto-marks each transition")
+    ap.add_argument("--protocol-reps", type=int, default=1,
+                    help="repeat the whole --protocol sequence N times")
+    ap.add_argument("--lead-in", type=float, default=3.0,
+                    help="'get ready' countdown (s) before the protocol starts")
+    ap.add_argument("--autostop", action=argparse.BooleanOptionalAction, default=True,
+                    help="stop recording when the protocol finishes (default: on)")
     ap.add_argument("--list", action="store_true", help="list serial ports and exit")
     args = ap.parse_args()
 
@@ -386,6 +532,12 @@ def main():
         return 0
 
     label_map = parse_labels(args.labels)
+
+    schedule = None
+    if args.protocol:
+        schedule = parse_protocol(args.protocol, args.protocol_reps)
+        if schedule is None:
+            return 1
 
     port = args.port or autodetect_port()
     if not port:
@@ -398,6 +550,11 @@ def main():
     except serial.SerialException as exc:
         print(f"Failed to open {port}: {exc}")
         return 1
+
+    if args.flush_seconds > 0:
+        print(f"[sync] draining stale buffer from {port} ...")
+        n = flush_stale_input(ser, args.flush_seconds)
+        print(f"[sync] discarded {n} stale rows; recording live data.")
 
     os.makedirs(args.outdir, exist_ok=True)
     base = os.path.join(args.outdir, time.strftime("session_%Y%m%d_%H%M%S"))
@@ -419,6 +576,11 @@ def main():
 
     reader = threading.Thread(target=rec.run, daemon=True)
     reader.start()
+
+    if schedule:
+        threading.Thread(target=protocol_loop,
+                         args=(rec, schedule, args.lead_in, args.autostop),
+                         daemon=True).start()
 
     try:
         if args.no_plot:
