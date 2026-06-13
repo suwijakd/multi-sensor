@@ -2,31 +2,14 @@
 """Multi-sensor wearable logger (PC side).
 
 Reads the CSV stream the ESP32-C3 emits over USB serial, writes a timestamped
-CSV file, shows a live scrolling dashboard, and lets you drop **event markers**
-(e.g. rest / active) that are saved alongside the data for later segmentation.
+CSV file, and (by default) shows a live scrolling dashboard.
 
 Examples
 --------
-    python record.py                       # autodetect port, log + live plot
-    python record.py --port COM14          # pick the port explicitly
-    python record.py --no-plot             # headless logging only
-    python record.py --labels "r=rest,a=active,s=squat"   # custom marker keys
-    python record.py --list                # just list serial ports and exit
-
-Event markers
--------------
-With the plot window focused, press a label key (default `r`=rest, `a`=active)
-to start a labelled state, or <space> for a one-off timestamp mark. In
---no-plot mode, type the key (or a full custom label) and press Enter; type
-`s` for status, `q` to quit.
-
-Each session writes two files:
-  * session_*.csv         — one row per sample, with a trailing `label` column
-                            carrying the current state (so you can filter rows
-                            by condition directly).
-  * session_*_events.csv  — one row per marker: host time, MCU `t_us`, `seq`,
-                            type (state/mark) and label. Join to the data on
-                            `seq` or `t_us` for exact alignment.
+    python record.py                 # autodetect port, log + live plot
+    python record.py --port COM5     # pick the port explicitly
+    python record.py --no-plot       # headless logging only
+    python record.py --list          # just list serial ports and exit
 """
 import argparse
 import csv
@@ -39,8 +22,8 @@ from collections import deque
 import serial
 import serial.tools.list_ports
 
-# Must match the firmware's "# columns:" line (the leading host_unix_time and
-# the trailing label are added by this script).
+# Must match the firmware's "# columns:" line (the leading host_unix_time is
+# added by this script).
 COLUMNS = [
     "t_us", "seq", "ppg_raw", "gsr_raw",
     "ax", "ay", "az", "gx", "gy", "gz", "mx", "my", "mz",
@@ -79,43 +62,21 @@ def autodetect_port():
     return None
 
 
-def parse_labels(spec):
-    """Parse 'r=rest,a=active' into an ordered {key: label} dict."""
-    label_map = {}
-    for pair in spec.split(","):
-        pair = pair.strip()
-        if not pair:
-            continue
-        if "=" not in pair:
-            print(f"[labels] ignoring '{pair}' (expected key=label)")
-            continue
-        k, v = pair.split("=", 1)
-        if k.strip():
-            label_map[k.strip()] = v.strip()
-    return label_map
-
-
 # --------------------------------------------------------------------------- #
-# Background reader: serial -> CSV file + in-memory ring buffers + markers
+# Background reader: serial -> CSV file + in-memory ring buffers
 # --------------------------------------------------------------------------- #
 class Recorder:
-    def __init__(self, ser, writer, csv_file, events_writer, events_file, window_pts):
+    def __init__(self, ser, writer, csv_file, window_pts):
         self.ser = ser
         self.writer = writer
         self.csv_file = csv_file
-        self.events_writer = events_writer
-        self.events_file = events_file
         self.lock = threading.Lock()
         self.buffers = {c: deque(maxlen=window_pts) for c in COLUMNS}
         self.stop_event = threading.Event()
         self.count = 0
         self.drops = 0
-        self.marks = 0
         self.last_seq = None
-        self.last_t_us = None
         self.t0_us = None
-        self.current_label = ""   # persistent state, written into every data row
-        self.events = []          # [{t_us, label, kind}] for the live dashboard
         self.start_time = time.time()
 
     def run(self):
@@ -139,8 +100,7 @@ class Recorder:
                 continue  # partial or malformed line
 
             host_t = time.time()
-            # Snapshot the label so a marker landing mid-write can't tear the row.
-            self.writer.writerow([f"{host_t:.6f}"] + parts + [self.current_label])
+            self.writer.writerow([f"{host_t:.6f}"] + parts)
             self.count += 1
 
             try:
@@ -154,7 +114,6 @@ class Recorder:
                 if gap > 0:
                     self.drops += gap
             self.last_seq = seq
-            self.last_t_us = vals[0]
             if self.t0_us is None:
                 self.t0_us = vals[0]
 
@@ -165,41 +124,7 @@ class Recorder:
             if self.count % 500 == 0:
                 self.csv_file.flush()
 
-        # Reader has exited (stop requested or serial error): let watchers know.
-        self.stop_event.set()
-
-    def mark(self, label, kind="state"):
-        """Record an event marker. kind='state' sets the persistent label that
-        every subsequent data row carries; kind='mark' is a one-off annotation."""
-        host_t = time.time()
-        seq, t_us, t0 = self.last_seq, self.last_t_us, self.t0_us
-        if kind == "state":
-            self.current_label = label
-        self.events_writer.writerow([
-            f"{host_t:.6f}",
-            "" if t_us is None else f"{t_us:.0f}",
-            "" if seq is None else seq,
-            kind, label,
-        ])
-        self.events_file.flush()
-        self.marks += 1
-        with self.lock:
-            self.events.append({"t_us": t_us, "label": label, "kind": kind})
-        if t_us is not None and t0 is not None:
-            when = f"t={ (t_us - t0) / 1e6:7.2f}s seq={seq}"
-        else:
-            when = "t=  --   (no samples yet)"
-        tag = "STATE" if kind == "state" else "mark "
-        print(f"  [{tag}] {when}  ->  {label!r}")
-
-    def print_status(self):
-        dur = time.time() - self.start_time
-        rate = self.count / dur if dur > 0 else 0.0
-        print(f"  [status] samples={self.count} ~{rate:.1f}Hz drops={self.drops} "
-              f"markers={self.marks} label={self.current_label!r} elapsed={dur:.1f}s")
-
     def snapshot(self):
-        """Thread-safe copy of the ring buffers for the live dashboard."""
         with self.lock:
             return {c: list(self.buffers[c]) for c in COLUMNS}
 
@@ -208,69 +133,14 @@ class Recorder:
 
 
 # --------------------------------------------------------------------------- #
-# Headless marker console (used with --no-plot)
-# --------------------------------------------------------------------------- #
-def console_loop(rec, label_map):
-    keys = " ".join(f"{k}={v}" for k, v in label_map.items()) or "(none configured)"
-    print(f"[markers] type a key + Enter:  {keys}  |  <Enter>=mark  s=status  q=quit")
-    while not rec.stop_event.is_set():
-        try:
-            cmd = input()
-        except EOFError:
-            break
-        low = cmd.strip().lower()
-        if low == "q":
-            rec.stop()
-            break
-        if low == "s":
-            rec.print_status()
-        elif cmd.strip() == "":
-            rec.mark("mark", kind="mark")
-        elif cmd.strip() in label_map:
-            rec.mark(label_map[cmd.strip()], kind="state")
-        else:
-            rec.mark(cmd.strip(), kind="state")  # full custom label
-
-
-# --------------------------------------------------------------------------- #
 # Live dashboard (matplotlib, imported lazily so --no-plot stays dependency-light)
 # --------------------------------------------------------------------------- #
-STATE_COLORS = {"rest": "tab:blue", "active": "tab:red"}
-_COLOR_CYCLE = ["tab:green", "tab:purple", "tab:orange", "tab:brown", "tab:pink", "tab:olive"]
-
-
-def run_dashboard(rec, window_seconds, label_map):
-    import matplotlib
+def run_dashboard(rec, window_seconds):
     import matplotlib.pyplot as plt
-
-    # Inline / non-interactive backends (Spyder's default "Inline", or Agg on a
-    # headless box) can't open a live window. Detect that and keep recording
-    # rather than silently doing nothing.
-    backend = matplotlib.get_backend().lower()
-    if "inline" in backend or backend == "agg":
-        print(f"[plot] matplotlib backend '{matplotlib.get_backend()}' can't open a live "
-              "window — no plot will show.")
-        print("       Spyder: Tools > Preferences > IPython console > Graphics >")
-        print("       'Graphics backend' = Automatic (or Qt5), then restart the kernel.")
-        print("       Or use --no-plot, or run from a plain terminal. Recording anyway...")
-        try:
-            while not rec.stop_event.is_set():
-                time.sleep(1.0)
-        except KeyboardInterrupt:
-            pass
-        return
-
-    # Free our marker keys from matplotlib's default shortcuts (e.g. 'r' is bound
-    # to "home/reset view") so pressing them only drops a marker.
-    for k in list(label_map.keys()) + [" "]:
-        for name, val in matplotlib.rcParams.items():
-            if name.startswith("keymap.") and isinstance(val, list) and k in val:
-                val.remove(k)
+    from matplotlib.animation import FuncAnimation
 
     fig, axes = plt.subplots(4, 1, sharex=True, figsize=(10, 8))
-    keyhelp = "  ".join(f"[{k}] {v}" for k, v in label_map.items())
-    fig.suptitle(f"Multi-sensor live   |   markers: {keyhelp}  [space] mark   "
-                 "(close window to stop)", fontsize=10)
+    fig.suptitle("Multi-sensor live  —  close this window to stop recording")
     ax_ppg, ax_gsr, ax_acc, ax_tmp = axes
 
     (l_ppg,) = ax_ppg.plot([], [], lw=0.8)
@@ -288,27 +158,7 @@ def run_dashboard(rec, window_seconds, label_map):
     ax_tmp.set_xlabel("time (s)")
     ax_tmp.legend(loc="upper right", fontsize=8)
 
-    label_colors = dict(STATE_COLORS)
-
-    def color_for(ev):
-        if ev["kind"] == "mark":
-            return "0.5"
-        lbl = ev["label"]
-        if lbl not in label_colors:
-            label_colors[lbl] = _COLOR_CYCLE[len(label_colors) % len(_COLOR_CYCLE)]
-        return label_colors[lbl]
-
-    drawn = {"n": 0}
-
-    def on_key(event):
-        if event.key in label_map:
-            rec.mark(label_map[event.key], kind="state")
-        elif event.key == " ":
-            rec.mark("mark", kind="mark")
-
-    fig.canvas.mpl_connect("key_press_event", on_key)
-
-    def update():
+    def update(_frame):
         snap = rec.snapshot()
         t_us = snap["t_us"]
         if not t_us:
@@ -324,47 +174,16 @@ def run_dashboard(rec, window_seconds, label_map):
         l_to.set_data(ts, snap["temp_obj_c"])
         l_ta.set_data(ts, snap["temp_amb_c"])
 
-        # Draw any markers that arrived since the last frame (they stay put in
-        # time and scroll with the x-axis).
-        with rec.lock:
-            new = rec.events[drawn["n"]:]
-            drawn["n"] = len(rec.events)
-        for ev in new:
-            if ev["t_us"] is None:
-                continue
-            x = (ev["t_us"] - t0) / 1e6
-            color = color_for(ev)
-            for ax in axes:
-                ax.axvline(x, color=color, ls="--", lw=1.0, alpha=0.7)
-            ax_ppg.text(x, 0.98, " " + ev["label"], color=color, fontsize=8,
-                        rotation=90, va="top", ha="left",
-                        transform=ax_ppg.get_xaxis_transform())
-
         tmax = ts[-1]
         for ax in axes:
             ax.set_xlim(max(0.0, tmax - window_seconds), max(window_seconds, tmax))
             ax.relim()
             ax.autoscale_view(scalex=False, scaley=True)
 
-    closed = {"flag": False}
-    fig.canvas.mpl_connect("close_event", lambda _evt: closed.__setitem__("flag", True))
-
+    # Keep a reference to the animation so it isn't garbage-collected.
+    _ani = FuncAnimation(fig, update, interval=50, blit=False, cache_frame_data=False)
     plt.tight_layout()
-    # Don't rely on plt.show() blocking — under IPython/Spyder it returns
-    # immediately. Show non-blocking, then pump the GUI loop ourselves until the
-    # window is closed or the serial reader stops.
-    plt.show(block=False)
-    try:
-        while not closed["flag"] and not rec.stop_event.is_set():
-            update()
-            plt.pause(0.08)  # ~12 FPS: smooth enough, leaves CPU for the serial reader
-    except Exception:
-        # A closing window legitimately raises here; anything else is a real bug
-        # we don't want to swallow silently (that masked an earlier regression).
-        if not closed["flag"]:
-            import traceback
-            print("[plot] dashboard loop error:")
-            traceback.print_exc()
+    plt.show()  # blocks until the window is closed
 
 
 # --------------------------------------------------------------------------- #
@@ -376,16 +195,12 @@ def main():
     ap.add_argument("--no-plot", action="store_true", help="log only, no live dashboard")
     ap.add_argument("--window", type=float, default=15.0, help="dashboard time window (seconds)")
     ap.add_argument("--rate-hz", type=float, default=100.0, help="expected sample rate (sizes the plot buffer)")
-    ap.add_argument("--labels", default="r=rest,a=active",
-                    help="marker keys, e.g. \"r=rest,a=active,s=squat\"")
     ap.add_argument("--list", action="store_true", help="list serial ports and exit")
     args = ap.parse_args()
 
     if args.list:
         list_ports()
         return 0
-
-    label_map = parse_labels(args.labels)
 
     port = args.port or autodetect_port()
     if not port:
@@ -400,37 +215,30 @@ def main():
         return 1
 
     os.makedirs(args.outdir, exist_ok=True)
-    base = os.path.join(args.outdir, time.strftime("session_%Y%m%d_%H%M%S"))
-    fname, events_fname = base + ".csv", base + "_events.csv"
-
+    fname = os.path.join(args.outdir, time.strftime("session_%Y%m%d_%H%M%S.csv"))
     csv_file = open(fname, "w", newline="")
     writer = csv.writer(csv_file)
-    writer.writerow(["host_unix_time"] + COLUMNS + ["label"])
-
-    events_file = open(events_fname, "w", newline="")
-    events_writer = csv.writer(events_file)
-    events_writer.writerow(["host_unix_time", "t_us", "seq", "type", "label"])
+    writer.writerow(["host_unix_time"] + COLUMNS)
 
     window_pts = max(100, int(args.window * args.rate_hz * 1.5))
-    rec = Recorder(ser, writer, csv_file, events_writer, events_file, window_pts)
+    rec = Recorder(ser, writer, csv_file, window_pts)
 
     print(f"Recording from {port} -> {fname}")
-    print(f"Markers -> {events_fname}")
+    print("Press Ctrl+C to stop." if args.no_plot else "Close the plot window to stop.")
 
     reader = threading.Thread(target=rec.run, daemon=True)
     reader.start()
 
     try:
         if args.no_plot:
-            console = threading.Thread(target=console_loop, args=(rec, label_map), daemon=True)
-            console.start()
-            while not rec.stop_event.is_set():
-                time.sleep(0.3)
+            while reader.is_alive():
+                time.sleep(2.0)
+                dur = time.time() - rec.start_time
+                rate = rec.count / dur if dur > 0 else 0.0
+                print(f"  samples={rec.count}  ~{rate:5.1f} Hz  drops={rec.drops}  "
+                      f"elapsed={dur:6.1f}s", end="\r", flush=True)
         else:
-            keyhelp = "  ".join(f"[{k}]={v}" for k, v in label_map.items())
-            print(f"Focus the plot window, then press: {keyhelp}  [space]=mark. "
-                  "Close the window to stop.")
-            run_dashboard(rec, args.window, label_map)
+            run_dashboard(rec, args.window)
     except KeyboardInterrupt:
         pass
     finally:
@@ -438,8 +246,6 @@ def main():
         reader.join(timeout=2.0)
         csv_file.flush()
         csv_file.close()
-        events_file.flush()
-        events_file.close()
         try:
             ser.close()
         except Exception:
@@ -447,9 +253,8 @@ def main():
         dur = time.time() - rec.start_time
         rate = rec.count / dur if dur > 0 else 0.0
         print(f"\nStopped. {rec.count} samples in {dur:.1f}s "
-              f"(~{rate:.1f} Hz, {rec.drops} dropped, {rec.marks} markers).")
-        print(f"Saved:  {fname}")
-        print(f"Events: {events_fname}")
+              f"(~{rate:.1f} Hz, {rec.drops} dropped).")
+        print(f"Saved: {fname}")
     return 0
 
 
