@@ -136,24 +136,45 @@ cd pc
 python -m venv .venv && .venv\Scripts\activate    # Windows (use source .venv/bin/activate on macOS/Linux)
 pip install -r requirements.txt
 
-python record.py                 # autodetect port, log + live dashboard
-python record.py --port COM5     # specify the port
-python record.py --no-plot       # headless logging only
-python record.py --list          # list serial ports and exit
+python record.py                              # autodetect port, log + live dashboard
+python record.py --port COM14                 # specify the port
+python record.py --no-plot                    # headless logging only
+python record.py --labels "r=rest,a=active"   # marker keys (this is the default)
+python record.py --list                       # list serial ports and exit
 ```
 
-Close the dashboard window (or press Ctrl+C in `--no-plot` mode) to stop. Files
-are written to `pc/recordings/session_YYYYMMDD_HHMMSS.csv`.
+Close the dashboard window (or press `q`/Ctrl+C in `--no-plot` mode) to stop.
+Files are written to `pc/recordings/session_YYYYMMDD_HHMMSS.csv`.
 
 The dashboard shows PPG, GSR, the three accelerometer axes, and object/ambient
 temperature. Gyro and magnetometer are still recorded to CSV — they're just not
 plotted to keep the view readable.
 
+### Event markers (rest / active, etc.)
+
+Markers let you tag *when* conditions change so you can segment the data later.
+
+- **With the dashboard:** click the plot window to focus it, then press a label
+  key — `r` (rest) or `a` (active) by default — to begin that labelled state, or
+  **space** for a one-off timestamp mark. A coloured dashed line + label appears
+  at that instant on every panel.
+- **Headless (`--no-plot`):** type the key and press **Enter** (`r`, `a`, or any
+  full custom label like `squat`); **Enter** alone drops a one-off mark, `s`
+  prints status, `q` quits.
+- **Custom keys:** `--labels "r=rest,a=active,s=squat"`.
+
+A "state" marker is *persistent*: every data row from then on carries that label
+in its `label` column, so a typical rest/active protocol is just alternating
+`r` and `a` presses at each transition.
+
 ---
 
-## 4. CSV schema
+## 4. Output files & schema
 
-The PC adds `host_unix_time`; everything else is straight from the device.
+Each session writes two files: the per-sample data and a marker log.
+
+**`session_*.csv`** — one row per sample. The PC adds `host_unix_time` (front)
+and `label` (back); everything between is straight from the device.
 
 | Column | Unit | Source |
 |--------|------|--------|
@@ -165,11 +186,22 @@ The PC adds `host_unix_time`; everything else is straight from the device.
 | `gx`,`gy`,`gz` | rad/s | ICM-20948 gyroscope |
 | `mx`,`my`,`mz` | µT | ICM-20948 magnetometer |
 | `temp_obj_c`, `temp_amb_c` | °C | MLX90614 (held at the 2 Hz cadence) |
+| `label` | text | current marker state (empty until first marker) |
+
+**`session_*_events.csv`** — one row per marker.
+
+| Column | Meaning |
+|--------|---------|
+| `host_unix_time` | PC time the key was pressed |
+| `t_us`, `seq` | the most recent sample at press time — join key into the data file |
+| `type` | `state` (persistent label) or `mark` (one-off annotation) |
+| `label` | e.g. `rest`, `active`, `squat`, `mark` |
 
 Use `t_us` (not `host_unix_time`) for anything timing-sensitive like heart-rate
-or HRV analysis — it's jitter-free relative to the host. PPG/GSR are stored raw
-so you keep full fidelity; convert to volts on the PC with
-`volts = counts / 4095 * 3.3`.
+or HRV analysis — it's jitter-free relative to the host. To segment by
+condition you can either filter the data file directly on `label`, or join the
+events file on `seq`/`t_us`. PPG/GSR are stored raw so you keep full fidelity;
+convert to volts on the PC with `volts = counts / 4095 * 3.3`.
 
 ---
 
@@ -195,8 +227,13 @@ Edit [`arduino/multi_sensor/config.h`](arduino/multi_sensor/config.h) and re-fla
   arduino-cli FQBN, or the `ARDUINO_USB_CDC_ON_BOOT` flag (already in
   `platformio.ini`). Also confirm you opened the right port. The board may reset
   when the port opens — you'll see the `#` banner reprint, which is normal.
-- **`overruns` climbing in `# stats`** — the tick can't finish in time; lower
-  `SAMPLE_RATE_HZ`.
+- **`txdrop` climbing in `# stats`** (and nonzero `dropped` on the PC) — the PC
+  isn't draining the USB port fast enough, so the device dropped whole rows to
+  keep the sample clock steady. The data that *did* arrive is uniformly timed.
+  Reduce the host load (e.g. run `--no-plot`, or widen `--window` less) or raise
+  the device TX buffer (`Serial.setTxBufferSize`).
+- **`overruns` climbing in `# stats`** — the sampling tick itself can't finish
+  in time (not a USB issue); lower `SAMPLE_RATE_HZ`.
 - **Wrong COM port chosen** — `python record.py --list`, then pass `--port`.
 
 ---
