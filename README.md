@@ -167,6 +167,25 @@ A "state" marker is *persistent*: every data row from then on carries that label
 in its `label` column, so a typical rest/active protocol is just alternating
 `r` and `a` presses at each transition.
 
+### Guided protocol (auto-marked timing)
+
+For a structured experiment, let the software run the schedule and mark the
+transitions for you — no human reaction lag, identical timing every trial:
+
+```bash
+# 4 phases of 60 s each, auto-marked; live countdown in the plot title
+python record.py --protocol "rest:60,active:60,rest:60,active:60"
+
+# repeat a rest/squat block 5 times, headless
+python record.py --no-plot --protocol "rest:30,active:30" --protocol-reps 5
+```
+
+- Each phase becomes a persistent `state` label, exactly like a manual press, so
+  it lands in both the data `label` column and the events file.
+- `--lead-in N` gives an N-second "get ready" countdown first (default 3 s).
+- Recording **auto-stops when the protocol ends** (`--no-autostop` keeps it
+  running); manual markers (`space`, label keys) still work during a protocol.
+
 ---
 
 ## 4. Output files & schema
@@ -232,6 +251,13 @@ Edit [`arduino/multi_sensor/config.h`](arduino/multi_sensor/config.h) and re-fla
   keep the sample clock steady. The data that *did* arrive is uniformly timed.
   Reduce the host load (e.g. run `--no-plot`, or widen `--window` less) or raise
   the device TX buffer (`Serial.setTxBufferSize`).
+- **A big `dropped` count *at startup* / first samples look old** — the C3 is
+  not reset by opening the port, so a board left powered keeps running and its
+  TX buffer holds a stale prefix. `record.py` drains it on connect
+  (`--flush-seconds`, default 0.5 s), so the recording starts on live data.
+  Note the device's `txdrop` in `# stats` is cumulative since power-on and won't
+  reset until you power-cycle the board — the PC summary's `dropped` is the
+  session-accurate figure.
 - **`overruns` climbing in `# stats`** — the sampling tick itself can't finish
   in time (not a USB issue); lower `SAMPLE_RATE_HZ`.
 - **Wrong COM port chosen** — `python record.py --list`, then pass `--port`.
