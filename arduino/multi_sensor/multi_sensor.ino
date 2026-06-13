@@ -30,9 +30,10 @@ static bool mlx_ok = false;
 static const uint32_t PERIOD_US  = 1000000UL / SAMPLE_RATE_HZ;
 static const uint32_t TEMP_DECIM = SAMPLE_RATE_HZ / TEMP_RATE_HZ;  // ticks between temp reads
 
-static uint32_t seq      = 0;   // monotonic sample counter (used for drop detection on PC)
-static uint32_t next_us  = 0;   // next scheduled sample time
-static uint32_t overruns = 0;   // count of ticks we couldn't keep up with
+static uint32_t seq        = 0; // monotonic sample counter (used for drop detection on PC)
+static uint32_t next_us    = 0; // next scheduled sample time
+static uint32_t overruns   = 0; // count of ticks we couldn't keep up with
+static uint32_t tx_dropped = 0; // rows skipped because the USB host fell behind
 
 // Last temperature reading, held between the (slow) decimated samples.
 static float temp_obj = NAN;
@@ -58,7 +59,11 @@ void emitMeta() {
 }
 
 void setup() {
+  // Big USB TX buffer absorbs host stalls (e.g. the PC busy redrawing plots);
+  // a 0 ms TX timeout means write() never blocks the sampling loop.
+  Serial.setTxBufferSize(8192);
   Serial.begin(115200);
+  Serial.setTxTimeoutMs(0);
   uint32_t t0 = millis();
   while (!Serial && (millis() - t0) < 2000) { delay(10); }  // wait briefly for USB host
 
@@ -128,12 +133,21 @@ void loop() {
     if (!isnan(am)) temp_amb = am;
   }
 
-  // One rectangular CSV row per tick.
-  snprintf(line, sizeof(line),
+  // One rectangular CSV row per tick. Leave room for the trailing newline.
+  int n = snprintf(line, sizeof(line) - 2,
     "%lu,%lu,%d,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.2f,%.2f,%.2f,%.2f,%.2f",
     (unsigned long)t_us, (unsigned long)seq, ppg, gsr,
     ax, ay, az, gx, gy, gz, mx, my, mz, temp_obj, temp_amb);
-  Serial.println(line);
+  if (n < 0) n = 0;
+  if (n > (int)sizeof(line) - 2) n = sizeof(line) - 2;  // guard against truncation
+  line[n++] = '\n';
+  // Non-blocking: only emit whole lines that fit, so the clock never stalls on
+  // USB. If the host fell behind, drop this row (PC sees the gap) and move on.
+  if (Serial.availableForWrite() >= n) {
+    Serial.write((const uint8_t *)line, n);
+  } else {
+    tx_dropped++;
+  }
 
   seq++;
 
@@ -142,8 +156,9 @@ void loop() {
   if (ms - stats_last_ms >= STATS_PERIOD_MS) {
     float dt   = (ms - stats_last_ms) / 1000.0f;
     float rate = (seq - stats_last_seq) / dt;
-    Serial.printf("# stats t_ms=%lu rate_hz=%.1f overruns=%lu seq=%lu\n",
-                  (unsigned long)ms, rate, (unsigned long)overruns, (unsigned long)seq);
+    Serial.printf("# stats t_ms=%lu rate_hz=%.1f overruns=%lu txdrop=%lu seq=%lu\n",
+                  (unsigned long)ms, rate, (unsigned long)overruns,
+                  (unsigned long)tx_dropped, (unsigned long)seq);
     stats_last_ms  = ms;
     stats_last_seq = seq;
     digitalWrite(PIN_LED, !digitalRead(PIN_LED));
