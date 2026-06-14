@@ -20,3 +20,6 @@ venv/
 # Recorded data
 recordings/
 *.csv
+
+# Generated test fixtures (reproducible via pc/tests/)
+pc/tests/data/
