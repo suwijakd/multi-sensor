@@ -16,6 +16,12 @@ slow MLX90614 on a decimated schedule (2 Hz, last value held), emitting one
 timestamped CSV row per tick. Because every row shares the MCU's `micros()`
 timebase, the channels are aligned with no cross-sensor drift.
 
+> **Alternative sensor set:** a drop-in variant for a **GY-MAX30102** PPG and a
+> **GY-521 / MPU-6050** IMU lives in
+> [`arduino/multi_sensor_alt/`](arduino/multi_sensor_alt/). It emits the same
+> CSV, so `record.py` works unchanged — just re-wire and flash that sketch. See
+> its [README](arduino/multi_sensor_alt/README.md).
+
 ---
 
 ## 1. Wiring
