@@ -230,7 +230,41 @@ convert to volts on the PC with `volts = counts / 4095 * 3.3`.
 
 ---
 
-## 5. Tuning
+## 5. Analysis (post-processing)
+
+Turn recorded sessions into physiological measures offline with
+[`pc/analyze.py`](pc/analyze.py) (extra deps: `pip install -r
+pc/requirements-analysis.txt`). It batch-processes a folder, segmenting each
+session by its `label` column:
+
+```bash
+cd pc
+python analyze.py                       # processes ./recordings
+python analyze.py --indir recordings --outdir results
+python analyze.py --squat-prominence 2.0 --no-plots
+```
+
+Per run it writes, into `<indir>/analysis/`:
+
+- **`analysis_phases.csv`** — one row per phase per session: `hr_mean`,
+  `hr_peak`, `rmssd_ms`, `sdnn_ms`, `reps`, `cadence_spm`, `motion_ms2`.
+- **`analysis_summary.csv`** — one row per session: baseline HR/RMSSD, active
+  HR mean/peak, total reps, and **HRR60** (heart-rate recovery).
+- **`<session>_qa.png`** — PPG + detected beats, accel + detected squats, and an
+  HR timeline, so you can verify detections before trusting the numbers.
+
+Notes:
+
+- HR comes from PPG, squat reps/cadence from the accelerometer, RMSSD from
+  inter-beat intervals. **HR/RMSSD are only reliable on low-motion phases**
+  (rest / recovery) — the `motion_ms2` column flags how stationary each phase is.
+- Squat counting detects accel-magnitude peaks; check the QA figure and tune
+  `--squat-prominence` (m/s²) / `--squat-min-interval` (s) to your squat style.
+- Works on either firmware variant (same columns).
+
+---
+
+## 6. Tuning
 
 Edit [`arduino/multi_sensor/config.h`](arduino/multi_sensor/config.h) and re-flash:
 
@@ -241,7 +275,7 @@ Edit [`arduino/multi_sensor/config.h`](arduino/multi_sensor/config.h) and re-fla
 
 ---
 
-## 6. Troubleshooting
+## 7. Troubleshooting
 
 - **`icm20948=MISSING`** — wrong address (try `0x68`), or SDA/SCL swapped.
 - **`mlx90614=MISSING` or temp = `nan`/`-273`** — I²C wiring/pull-ups, or the
