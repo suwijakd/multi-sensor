@@ -41,6 +41,7 @@ Each session writes two files:
 import argparse
 import csv
 import os
+import socket
 import sys
 import threading
 import time
@@ -128,6 +129,41 @@ def flush_stale_input(ser, seconds=0.5):
         elif line:
             discarded += 1
     return discarded
+
+
+class TcpLineSource:
+    """Minimal pyserial-compatible wrapper around a TCP socket so the rest of
+    the recorder (which calls .readline()/.reset_input_buffer()/.close()) works
+    over Wi-Fi unchanged. readline() returns b'' on timeout (so the reader can
+    re-check stop_event) and raises OSError if the device closes the link."""
+
+    def __init__(self, host, port, timeout=1.0):
+        self._sock = socket.create_connection((host, port), timeout=5.0)
+        self._sock.settimeout(timeout)
+        self._buf = bytearray()
+
+    def readline(self):
+        while b"\n" not in self._buf:
+            try:
+                chunk = self._sock.recv(4096)
+            except (socket.timeout, TimeoutError):
+                return b""              # timeout: let the reader loop re-check stop
+            if not chunk:               # peer closed the connection
+                raise OSError("connection closed by device")
+            self._buf.extend(chunk)
+        idx = self._buf.index(b"\n") + 1
+        line = bytes(self._buf[:idx])
+        del self._buf[:idx]
+        return line
+
+    def reset_input_buffer(self):
+        self._buf.clear()
+
+    def close(self):
+        try:
+            self._sock.close()
+        except OSError:
+            pass
 
 
 def parse_protocol(spec, reps=1):
@@ -506,6 +542,7 @@ def run_dashboard(rec, window_seconds, label_map):
 def main():
     ap = argparse.ArgumentParser(description="ESP32-C3 multi-sensor serial logger.")
     ap.add_argument("--port", help="serial port (e.g. COM5 or /dev/ttyACM0); autodetected if omitted")
+    ap.add_argument("--tcp", help="stream over Wi-Fi instead of USB, e.g. 192.168.4.1:3333")
     ap.add_argument("--baud", type=int, default=115200, help="ignored by native USB CDC, but set anyway")
     ap.add_argument("--outdir", default="recordings", help="directory for CSV files")
     ap.add_argument("--no-plot", action="store_true", help="log only, no live dashboard")
@@ -539,20 +576,31 @@ def main():
         if schedule is None:
             return 1
 
-    port = args.port or autodetect_port()
-    if not port:
-        print("Could not autodetect the device. Use --list to see ports, "
-              "then pass --port <PORT>.")
-        return 1
+    if args.tcp:
+        host, _, p = args.tcp.partition(":")
+        tcp_port = int(p) if p else 3333
+        try:
+            ser = TcpLineSource(host, tcp_port)
+        except OSError as exc:
+            print(f"Failed to connect to {host}:{tcp_port}: {exc}")
+            return 1
+        src_name = f"{host}:{tcp_port}"
+    else:
+        port = args.port or autodetect_port()
+        if not port:
+            print("Could not autodetect the device. Use --list to see ports, then "
+                  "pass --port <PORT> (or --tcp HOST:PORT to stream over Wi-Fi).")
+            return 1
+        try:
+            ser = serial.Serial(port, args.baud, timeout=1)
+        except serial.SerialException as exc:
+            print(f"Failed to open {port}: {exc}")
+            return 1
+        src_name = port
 
-    try:
-        ser = serial.Serial(port, args.baud, timeout=1)
-    except serial.SerialException as exc:
-        print(f"Failed to open {port}: {exc}")
-        return 1
-
-    if args.flush_seconds > 0:
-        print(f"[sync] draining stale buffer from {port} ...")
+    # The stale-prefix flush is a USB-CDC quirk; a fresh TCP stream has none.
+    if args.flush_seconds > 0 and not args.tcp:
+        print(f"[sync] draining stale buffer from {src_name} ...")
         n = flush_stale_input(ser, args.flush_seconds)
         print(f"[sync] discarded {n} stale rows; recording live data.")
 
@@ -571,7 +619,7 @@ def main():
     window_pts = max(100, int(args.window * args.rate_hz * 1.5))
     rec = Recorder(ser, writer, csv_file, events_writer, events_file, window_pts)
 
-    print(f"Recording from {port} -> {fname}")
+    print(f"Recording from {src_name} -> {fname}")
     print(f"Markers -> {events_fname}")
 
     reader = threading.Thread(target=rec.run, daemon=True)
@@ -616,4 +664,10 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    code = main()
+    sys.stdout.flush()
+    sys.stderr.flush()
+    # Hard-exit so a --no-plot console thread still blocked on input() (common
+    # when a wireless link drops) can't trigger a CPython shutdown error. All
+    # files are already closed in main()'s finally block.
+    os._exit(code or 0)

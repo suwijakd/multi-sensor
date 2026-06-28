@@ -38,3 +38,14 @@
 
 // ---- ADC ------------------------------------------------------------------
 #define ADC_BITS   12          // ESP32-C3 ADC is 12-bit -> 0..4095
+
+// ---- Wireless (optional) --------------------------------------------------
+// Uncomment STREAM_WIFI to ALSO stream over Wi-Fi (USB keeps working too). The
+// device makes its own Wi-Fi network (SoftAP); join it on the PC, then run:
+//     python record.py --tcp 192.168.4.1:3333
+// Power from a USB battery bank to go fully untethered. GSR stays on ADC1, which
+// is unaffected by the radio. Leave commented for default USB-only behavior.
+//#define STREAM_WIFI
+#define WIFI_AP_SSID  "multisensor"
+#define WIFI_AP_PASS  "squat12345"   // >= 8 chars; the PC uses this to join the AP
+#define STREAM_PORT   3333

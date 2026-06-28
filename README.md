@@ -192,6 +192,29 @@ python record.py --no-plot --protocol "rest:30,active:30" --protocol-reps 5
 - Recording **auto-stops when the protocol ends** (`--no-autostop` keeps it
   running); manual markers (`space`, label keys) still work during a protocol.
 
+### Going wireless (Wi-Fi)
+
+To cut the USB data cable, stream over Wi-Fi instead. Both firmware sketches
+support it (off by default):
+
+1. In the sketch's `config.h`, uncomment `#define STREAM_WIFI`, then re-flash.
+   The device makes its own Wi-Fi network (SoftAP) — USB still works too.
+2. Power the board from a small **USB battery bank** so it's fully untethered.
+3. On the PC, join the device's Wi-Fi (`multisensor`, password `squat12345` by
+   default — change both in `config.h`), then:
+
+   ```bash
+   python record.py --tcp 192.168.4.1:3333
+   ```
+
+Everything else — markers, the guided protocol, the dashboard, `analyze.py` — is
+identical to the USB path; only the transport changes. The device's `t_us` clock
+stays authoritative, so Wi-Fi jitter doesn't affect timing, and a dropped link
+shows up as a `seq` gap (and stops the recording cleanly). PPG/GSR stay on ADC1,
+which the radio doesn't disturb. For a setup with no spare router, SoftAP needs
+none; to instead keep the PC on your normal network, switch the firmware to
+station mode (join an existing AP) — ask and I'll add the config for it.
+
 ---
 
 ## 4. Output files & schema
