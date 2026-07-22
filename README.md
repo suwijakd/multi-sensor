@@ -211,7 +211,14 @@ Everything else — markers, the guided protocol, the dashboard, `analyze.py` �
 identical to the USB path; only the transport changes. The device's `t_us` clock
 stays authoritative, so Wi-Fi jitter doesn't affect timing, and a dropped link
 shows up as a `seq` gap (and stops the recording cleanly). PPG/GSR stay on ADC1,
-which the radio doesn't disturb. For a setup with no spare router, SoftAP needs
+which the radio doesn't disturb.
+
+> **ESP32-C3 Super Mini note:** this board's power design can't drive the radio
+> at full TX power, so the AP starts but the SSID is **invisible** even at close
+> range. The firmware works around it by lowering TX power (`WIFI_TX_POWER` in
+> `config.h`, default `WIFI_POWER_8_5dBm`); drop it to `WIFI_POWER_2dBm` if the
+> SSID still doesn't show up. A board with a proper/external antenna doesn't need
+> this. For a setup with no spare router, SoftAP needs
 none; to instead keep the PC on your normal network, switch the firmware to
 station mode (join an existing AP) — ask and I'll add the config for it.
 

@@ -106,6 +106,7 @@ void setup() {
 #ifdef STREAM_WIFI
   WiFi.mode(WIFI_AP);
   WiFi.softAP(WIFI_AP_SSID, WIFI_AP_PASS);
+  WiFi.setTxPower(WIFI_TX_POWER);   // C3 Super Mini: full TX power leaves the AP invisible (see config.h)
   server.begin();
 #endif
 
