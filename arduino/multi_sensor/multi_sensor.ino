@@ -131,7 +131,7 @@ void loop() {
   // Accept a (re)connecting Wi-Fi client and greet it with the metadata block.
   if (!wifiClient || !wifiClient.connected()) {
     WiFiClient c = server.available();
-    if (c) { wifiClient = c; emitMetaTo(wifiClient); }
+    if (c) { wifiClient = c; wifiClient.setNoDelay(true); emitMetaTo(wifiClient); }
   }
 #endif
 
@@ -174,7 +174,9 @@ void loop() {
     tx_dropped++;
   }
 #ifdef STREAM_WIFI
-  if (wifiClient && wifiClient.connected() && wifiClient.availableForWrite() >= n) {
+  // WiFiClient::availableForWrite() always returns 0 on ESP32, so we must NOT
+  // gate on it (that skipped every row). Write directly when connected.
+  if (wifiClient && wifiClient.connected()) {
     wifiClient.write((const uint8_t *)line, n);
   }
 #endif
