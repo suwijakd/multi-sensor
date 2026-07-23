@@ -31,3 +31,20 @@
 
 // ---- ADC ------------------------------------------------------------------
 #define ADC_BITS   12          // ESP32-C3 ADC is 12-bit -> 0..4095
+
+// ---- Wireless (optional) --------------------------------------------------
+// Uncomment STREAM_WIFI to ALSO stream over Wi-Fi (USB keeps working too). The
+// device makes its own Wi-Fi network (SoftAP); join it on the PC, then run:
+//     python record.py --tcp 192.168.4.1:3333
+// Power the board from a USB battery bank to go fully untethered. PPG/GSR stay
+// on ADC1, which is unaffected by the radio (only ADC2 is). Leave commented for
+// the default USB-only behavior.
+//#define STREAM_WIFI
+#define WIFI_AP_SSID  "multisensor"
+#define WIFI_AP_PASS  "squat12345"   // >= 8 chars; the PC uses this to join the AP
+#define STREAM_PORT   3333
+// The ESP32-C3 Super Mini's weak power design can't drive the radio at full TX
+// power, so the AP starts but is invisible. Lowering TX power is what actually
+// makes Wi-Fi work on this board. Try WIFI_POWER_2dBm if the SSID still doesn't
+// appear, or WIFI_POWER_19_5dBm on a board with a proper antenna.
+#define WIFI_TX_POWER WIFI_POWER_8_5dBm

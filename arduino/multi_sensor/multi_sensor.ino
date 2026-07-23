@@ -21,6 +21,12 @@
 #include <Adafruit_MLX90614.h>
 #include "config.h"
 
+#ifdef STREAM_WIFI
+#include <WiFi.h>
+static WiFiServer server(STREAM_PORT);
+static WiFiClient wifiClient;
+#endif
+
 Adafruit_ICM20948 icm;
 Adafruit_MLX90614 mlx;
 
@@ -45,17 +51,21 @@ static uint32_t stats_last_seq = 0;
 
 static char line[256];
 
-// Emit a metadata block. Lines starting with '#' are comments the PC ignores
-// for data purposes (but prints to the console).
-void emitMeta() {
-  Serial.println(F("# multi-sensor wearable logger"));
-  Serial.printf("# sample_rate_hz=%d temp_rate_hz=%d\n", SAMPLE_RATE_HZ, TEMP_RATE_HZ);
-  Serial.printf("# icm20948=%s mlx90614=%s\n",
-                icm_ok ? "ok" : "MISSING", mlx_ok ? "ok" : "MISSING");
-  Serial.println(F("# units: ppg,gsr=adc_counts(0-4095) accel=m/s^2 gyro=rad/s "
-                   "mag=uT temp=degC t_us=micros"));
-  Serial.println(F("# columns: t_us,seq,ppg_raw,gsr_raw,ax,ay,az,gx,gy,gz,mx,my,mz,"
-                   "temp_obj_c,temp_amb_c"));
+// Emit a metadata block to any Print target (USB Serial or a Wi-Fi client).
+// Lines starting with '#' are comments the PC ignores for data purposes.
+void emitMetaTo(Print &out) {
+  out.println(F("# multi-sensor wearable logger"));
+  out.printf("# sample_rate_hz=%d temp_rate_hz=%d\n", SAMPLE_RATE_HZ, TEMP_RATE_HZ);
+  out.printf("# icm20948=%s mlx90614=%s\n",
+             icm_ok ? "ok" : "MISSING", mlx_ok ? "ok" : "MISSING");
+#ifdef STREAM_WIFI
+  out.printf("# wifi=AP ssid=%s ip=%s port=%d\n", WIFI_AP_SSID,
+             WiFi.softAPIP().toString().c_str(), STREAM_PORT);
+#endif
+  out.println(F("# units: ppg,gsr=adc_counts(0-4095) accel=m/s^2 gyro=rad/s "
+                "mag=uT temp=degC t_us=micros"));
+  out.println(F("# columns: t_us,seq,ppg_raw,gsr_raw,ax,ay,az,gx,gy,gz,mx,my,mz,"
+                "temp_obj_c,temp_amb_c"));
 }
 
 void setup() {
@@ -89,7 +99,14 @@ void setup() {
   // MLX90614 can't tolerate.
   Wire.setClock(I2C_FREQ_HZ);
 
-  emitMeta();
+#ifdef STREAM_WIFI
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP(WIFI_AP_SSID, WIFI_AP_PASS);
+  WiFi.setTxPower(WIFI_TX_POWER);   // C3 Super Mini: full TX power leaves the AP invisible (see config.h)
+  server.begin();
+#endif
+
+  emitMetaTo(Serial);
 
   next_us       = micros();
   stats_last_ms = millis();
@@ -109,6 +126,14 @@ void loop() {
   }
 
   uint32_t t_us = now;
+
+#ifdef STREAM_WIFI
+  // Accept a (re)connecting Wi-Fi client and greet it with the metadata block.
+  if (!wifiClient || !wifiClient.connected()) {
+    WiFiClient c = server.available();
+    if (c) { wifiClient = c; wifiClient.setNoDelay(true); emitMetaTo(wifiClient); }
+  }
+#endif
 
   // --- fast sensors: every tick ---
   int ppg = analogRead(PIN_PPG);
@@ -148,6 +173,13 @@ void loop() {
   } else {
     tx_dropped++;
   }
+#ifdef STREAM_WIFI
+  // WiFiClient::availableForWrite() always returns 0 on ESP32, so we must NOT
+  // gate on it (that skipped every row). Write directly when connected.
+  if (wifiClient && wifiClient.connected()) {
+    wifiClient.write((const uint8_t *)line, n);
+  }
+#endif
 
   seq++;
 

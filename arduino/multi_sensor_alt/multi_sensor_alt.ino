@@ -18,6 +18,12 @@
 #include <Adafruit_MLX90614.h>
 #include "config.h"
 
+#ifdef STREAM_WIFI
+#include <WiFi.h>
+static WiFiServer server(STREAM_PORT);
+static WiFiClient wifiClient;
+#endif
+
 MAX30105 ppgSensor;
 Adafruit_MPU6050 mpu;
 Adafruit_MLX90614 mlx;
@@ -45,18 +51,22 @@ static char line[256];
 
 // Same column layout as the default sketch (note the differing PPG units and
 // the absent magnetometer, called out for whoever reads the stream live).
-void emitMeta() {
-  Serial.println(F("# multi-sensor wearable logger (ALT: MAX30102 + MPU-6050)"));
-  Serial.printf("# variant=max30102_mpu6050 sample_rate_hz=%d temp_rate_hz=%d\n",
-                SAMPLE_RATE_HZ, TEMP_RATE_HZ);
-  Serial.printf("# max30102=%s mpu6050=%s mlx90614=%s\n",
-                ppg_ok ? "ok" : "MISSING", mpu_ok ? "ok" : "MISSING",
-                mlx_ok ? "ok" : "MISSING");
-  Serial.println(F("# units: ppg_raw=MAX30102 IR counts  gsr=adc_counts(0-4095)  "
-                   "accel=m/s^2 gyro=rad/s  mag=nan(no magnetometer)  temp=degC  "
-                   "t_us=micros"));
-  Serial.println(F("# columns: t_us,seq,ppg_raw,gsr_raw,ax,ay,az,gx,gy,gz,mx,my,mz,"
-                   "temp_obj_c,temp_amb_c"));
+void emitMetaTo(Print &out) {
+  out.println(F("# multi-sensor wearable logger (ALT: MAX30102 + MPU-6050)"));
+  out.printf("# variant=max30102_mpu6050 sample_rate_hz=%d temp_rate_hz=%d\n",
+             SAMPLE_RATE_HZ, TEMP_RATE_HZ);
+  out.printf("# max30102=%s mpu6050=%s mlx90614=%s\n",
+             ppg_ok ? "ok" : "MISSING", mpu_ok ? "ok" : "MISSING",
+             mlx_ok ? "ok" : "MISSING");
+#ifdef STREAM_WIFI
+  out.printf("# wifi=AP ssid=%s ip=%s port=%d\n", WIFI_AP_SSID,
+             WiFi.softAPIP().toString().c_str(), STREAM_PORT);
+#endif
+  out.println(F("# units: ppg_raw=MAX30102 IR counts  gsr=adc_counts(0-4095)  "
+                "accel=m/s^2 gyro=rad/s  mag=nan(no magnetometer)  temp=degC  "
+                "t_us=micros"));
+  out.println(F("# columns: t_us,seq,ppg_raw,gsr_raw,ax,ay,az,gx,gy,gz,mx,my,mz,"
+                "temp_obj_c,temp_amb_c"));
 }
 
 void setup() {
@@ -92,7 +102,15 @@ void setup() {
   mlx_ok = mlx.begin(MLX_ADDR, &Wire);
 
   Wire.setClock(I2C_FREQ_HZ);  // re-assert 100 kHz for the MLX90614
-  emitMeta();
+
+#ifdef STREAM_WIFI
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP(WIFI_AP_SSID, WIFI_AP_PASS);
+  WiFi.setTxPower(WIFI_TX_POWER);   // C3 Super Mini: full TX power leaves the AP invisible (see config.h)
+  server.begin();
+#endif
+
+  emitMetaTo(Serial);
 
   next_us       = micros();
   stats_last_ms = millis();
@@ -109,6 +127,14 @@ void loop() {
   }
 
   uint32_t t_us = now;
+
+#ifdef STREAM_WIFI
+  // Accept a (re)connecting Wi-Fi client and greet it with the metadata block.
+  if (!wifiClient || !wifiClient.connected()) {
+    WiFiClient c = server.available();
+    if (c) { wifiClient = c; wifiClient.setNoDelay(true); emitMetaTo(wifiClient); }
+  }
+#endif
 
   // --- PPG: drain the MAX30102 FIFO non-blocking, keep the most recent IR ---
   if (ppg_ok) {
@@ -150,6 +176,13 @@ void loop() {
   } else {
     tx_dropped++;
   }
+#ifdef STREAM_WIFI
+  // WiFiClient::availableForWrite() always returns 0 on ESP32, so we must NOT
+  // gate on it (that skipped every row). Write directly when connected.
+  if (wifiClient && wifiClient.connected()) {
+    wifiClient.write((const uint8_t *)line, n);
+  }
+#endif
 
   seq++;
 
