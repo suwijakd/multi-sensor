@@ -1,0 +1,255 @@
+(footprint "TI_YBG0008_DSBGA-8_1.6x1.1mm"
+	(version 20241229)
+	(generator "wearable_footprints")
+	(generator_version "10.0")
+	(layer "F.Cu")
+	(descr "TI DSBGA-8 YBG0008, 2x4 balls, 0.4 mm pitch, body 1.6x1.04 mm (BQ25180). https://www.ti.com/lit/ds/symlink/bq25180.pdf#page=52")
+	(tags "DSBGA WCSP YBG BQ25180")
+	(property "Reference" "REF**"
+		(at 0 -1.805 0)
+		(layer "F.SilkS")
+		(uuid "d6c30f29-dc39-5a9f-a5bf-f9400f5a1f53")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.12)
+			)
+		)
+	)
+	(property "Value" "TI_YBG0008_DSBGA-8_1.6x1.1mm"
+		(at 0 1.805 0)
+		(layer "F.Fab")
+		(uuid "e1449a88-1315-536f-99bf-cfd35752963f")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.12)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "e40419f2-713d-5982-9ffd-fbd28523c90b")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.12)
+			)
+		)
+	)
+	(property "Description" "TI DSBGA-8 YBG0008, 2x4 balls, 0.4 mm pitch, body 1.6x1.04 mm (BQ25180). https://www.ti.com/lit/ds/symlink/bq25180.pdf#page=52"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "dfe88c42-1144-52a2-b4e8-f60d3075b7c2")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.12)
+			)
+		)
+	)
+	(attr smd)
+	(fp_line
+		(start -0.265 -0.805)
+		(end 0.53 -0.805)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "3761beb8-fed6-5095-880e-d309c76e055b")
+	)
+	(fp_line
+		(start 0.53 -0.805)
+		(end 0.53 0.805)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "e6ee7499-0422-5588-bc0f-449c52a16d20")
+	)
+	(fp_line
+		(start 0.53 0.805)
+		(end -0.53 0.805)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "afcf0b45-33af-5f21-84d1-afde4f95fd39")
+	)
+	(fp_line
+		(start -0.53 0.805)
+		(end -0.53 -0.54)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "94cdf3e8-6da2-5701-9712-b2bb998937ad")
+	)
+	(fp_line
+		(start -0.53 -0.54)
+		(end -0.265 -0.805)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "0bb1a81e-cef8-59be-aff1-665626e6d769")
+	)
+	(fp_line
+		(start 0.64 -0.915)
+		(end 0.24 -0.915)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "d13e9d85-cc28-529c-ac05-c2031f3446b5")
+	)
+	(fp_line
+		(start 0.64 -0.915)
+		(end 0.64 -0.515)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "5e450526-391f-5a3b-b5e4-d0831b03997e")
+	)
+	(fp_line
+		(start 0.64 0.915)
+		(end 0.24 0.915)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "5b649b9d-ed35-5034-b557-06370bbeaaa4")
+	)
+	(fp_line
+		(start 0.64 0.915)
+		(end 0.64 0.515)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "8ba7c447-992c-5847-bfc3-388734c6e713")
+	)
+	(fp_line
+		(start -0.64 0.915)
+		(end -0.24 0.915)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "b565c7f3-4009-53a7-89b7-067aa30d139b")
+	)
+	(fp_line
+		(start -0.64 0.915)
+		(end -0.64 0.515)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "0a9a2a61-4337-53a8-ab5c-4848b798658a")
+	)
+	(fp_circle
+		(center -0.89 -0.915)
+		(end -0.81 -0.915)
+		(stroke
+			(width 0.16)
+			(type solid)
+		)
+		(fill yes)
+		(layer "F.SilkS")
+		(uuid "ae3eaf10-cf12-51c3-88e9-57575fd75d40")
+	)
+	(fp_rect
+		(start -0.78 -1.055)
+		(end 0.78 1.055)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.CrtYd")
+		(uuid "f58be332-f9c2-581f-ae49-e19e673cc634")
+	)
+	(fp_text user "${REFERENCE}"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(uuid "9d073546-fd13-5105-863e-2a47318ecf97")
+		(effects
+			(font
+				(size 0.4 0.4)
+				(thickness 0.06)
+			)
+		)
+	)
+	(pad "A1" smd circle
+		(at -0.2 -0.6)
+		(size 0.25 0.25)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(solder_mask_margin 0.04)
+		(uuid "7b996f52-ce37-5e74-8baa-5503fc9d71e3")
+	)
+	(pad "A2" smd circle
+		(at 0.2 -0.6)
+		(size 0.25 0.25)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(solder_mask_margin 0.04)
+		(uuid "460f9352-10a9-51da-ac11-6838528b6a73")
+	)
+	(pad "B1" smd circle
+		(at -0.2 -0.2)
+		(size 0.25 0.25)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(solder_mask_margin 0.04)
+		(uuid "1aa71c6e-a352-5667-b695-a7459ef2071a")
+	)
+	(pad "B2" smd circle
+		(at 0.2 -0.2)
+		(size 0.25 0.25)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(solder_mask_margin 0.04)
+		(uuid "b8de8912-7fa2-5cde-84c8-7bda3cf246fb")
+	)
+	(pad "C1" smd circle
+		(at -0.2 0.2)
+		(size 0.25 0.25)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(solder_mask_margin 0.04)
+		(uuid "b3aa21bd-b5bb-540a-98d3-e55bb7a55375")
+	)
+	(pad "C2" smd circle
+		(at 0.2 0.2)
+		(size 0.25 0.25)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(solder_mask_margin 0.04)
+		(uuid "0f168f62-79a6-58dd-ba17-5822ea208392")
+	)
+	(pad "D1" smd circle
+		(at -0.2 0.6)
+		(size 0.25 0.25)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(solder_mask_margin 0.04)
+		(uuid "50213fc2-82af-5ea8-875b-a7b2d7bf5c32")
+	)
+	(pad "D2" smd circle
+		(at 0.2 0.6)
+		(size 0.25 0.25)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(solder_mask_margin 0.04)
+		(uuid "79d23c25-6477-5dd5-a781-90fc81909655")
+	)
+	(embedded_fonts no)
+)
