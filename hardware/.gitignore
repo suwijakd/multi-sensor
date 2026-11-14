@@ -1,0 +1,17 @@
+datasheets/
+kicad/*-backups/
+kicad/*.lck
+kicad/fp-info-cache
+kicad/_autosave-*
+*.net
+__pycache__/
+kicad/*.kicad_prl
+# BOM is a deliverable; the repo-wide *.csv rule is meant for recordings
+!wearable_revA_bom.csv
+# router exchange files and scratch outputs
+kicad/*.dsn
+kicad/*.ses
+fab/gerbers/
+fab/drc.json
+!fab/*.csv
+kicad/logs/

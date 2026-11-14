@@ -1,0 +1,235 @@
+(footprint "TestPads_1x06_P2.54mm"
+	(version 20241229)
+	(generator "wearable_footprints")
+	(generator_version "10.0")
+	(layer "F.Cu")
+	(descr "Six 1.5 mm test pads at 2.54 mm pitch (SWD: GND, VTref, SWDIO, SWDCLK, nRESET, SWO)")
+	(tags "test pads SWD pogo")
+	(property "Reference" "REF**"
+		(at 0 -1.95 0)
+		(layer "F.SilkS")
+		(uuid "d6c30f29-dc39-5a9f-a5bf-f9400f5a1f53")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.12)
+			)
+		)
+	)
+	(property "Value" "TestPads_1x06_P2.54mm"
+		(at 0 1.95 0)
+		(layer "F.Fab")
+		(uuid "a2feee11-072a-56b0-bc8b-8e7003bf8c0e")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.12)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "e40419f2-713d-5982-9ffd-fbd28523c90b")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.12)
+			)
+		)
+	)
+	(property "Description" "Six 1.5 mm test pads at 2.54 mm pitch (SWD: GND, VTref, SWDIO, SWDCLK, nRESET, SWO)"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "f7e18f3c-cb82-5f2a-96dc-836de23cbbe8")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.12)
+			)
+		)
+	)
+	(attr smd)
+	(fp_line
+		(start -7 -0.95)
+		(end 7.3 -0.95)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "acaa3e1a-9fb0-51cb-be05-dc8acde2a7c5")
+	)
+	(fp_line
+		(start 7.3 -0.95)
+		(end 7.3 0.95)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "176a5c21-faa1-5586-afa2-e0d8514c278e")
+	)
+	(fp_line
+		(start 7.3 0.95)
+		(end -7.3 0.95)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "1d5252b5-edd4-57ec-b160-32db6e2d69a9")
+	)
+	(fp_line
+		(start -7.3 0.95)
+		(end -7.3 -0.65)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "be8407bd-567f-5741-ba46-be1da29aba63")
+	)
+	(fp_line
+		(start -7.3 -0.65)
+		(end -7 -0.95)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "64bcc790-ad1d-5133-bd1d-4a3726d83164")
+	)
+	(fp_line
+		(start 7.41 -1.06)
+		(end 7.01 -1.06)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "98cfe53f-a6b1-5191-8018-05e63f5d42c3")
+	)
+	(fp_line
+		(start 7.41 -1.06)
+		(end 7.41 -0.66)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "af4ad8d7-898e-54fe-a598-923fe33ede15")
+	)
+	(fp_line
+		(start 7.41 1.06)
+		(end 7.01 1.06)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "36f749da-a0b5-51de-ad29-d838f7148c3d")
+	)
+	(fp_line
+		(start 7.41 1.06)
+		(end 7.41 0.66)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "dbb96f1a-de26-58a7-a2e7-75858e7fdc21")
+	)
+	(fp_line
+		(start -7.41 1.06)
+		(end -7.01 1.06)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "4fe1a32e-4660-5a3c-878b-aff5ed6f44a2")
+	)
+	(fp_line
+		(start -7.41 1.06)
+		(end -7.41 0.66)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "182d7446-a063-5127-a544-4e3126c4e9c0")
+	)
+	(fp_circle
+		(center -7.66 -1.06)
+		(end -7.58 -1.06)
+		(stroke
+			(width 0.16)
+			(type solid)
+		)
+		(fill yes)
+		(layer "F.SilkS")
+		(uuid "9c4cedc5-d740-511e-b4c4-fb6605eea56d")
+	)
+	(fp_rect
+		(start -7.55 -1.2)
+		(end 7.55 1.2)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.CrtYd")
+		(uuid "571d9931-4f21-5ae5-b7a1-ba437b560182")
+	)
+	(fp_text user "${REFERENCE}"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(uuid "6c57e094-5e86-56bc-88bb-97981abee7c6")
+		(effects
+			(font
+				(size 0.4 0.4)
+				(thickness 0.06)
+			)
+		)
+	)
+	(pad "1" smd circle
+		(at -6.35 0)
+		(size 1.5 1.5)
+		(layers "F.Cu" "F.Mask")
+		(uuid "cfc3d3bb-37d2-5fc4-9ba5-d82a9639e03f")
+	)
+	(pad "2" smd circle
+		(at -3.81 0)
+		(size 1.5 1.5)
+		(layers "F.Cu" "F.Mask")
+		(uuid "69ce20f8-4e39-5d82-b227-0c3b632c390a")
+	)
+	(pad "3" smd circle
+		(at -1.27 0)
+		(size 1.5 1.5)
+		(layers "F.Cu" "F.Mask")
+		(uuid "650005ca-0b2a-5b3e-b8df-d3d3da7d95fd")
+	)
+	(pad "4" smd circle
+		(at 1.27 0)
+		(size 1.5 1.5)
+		(layers "F.Cu" "F.Mask")
+		(uuid "235c2b26-ad61-50cb-931d-32ce547caa49")
+	)
+	(pad "5" smd circle
+		(at 3.81 0)
+		(size 1.5 1.5)
+		(layers "F.Cu" "F.Mask")
+		(uuid "868ae7c8-0f51-5187-8744-2d7c4d543389")
+	)
+	(pad "6" smd circle
+		(at 6.35 0)
+		(size 1.5 1.5)
+		(layers "F.Cu" "F.Mask")
+		(uuid "2dd45816-9983-55e9-94b9-fbc1a4e0b4a4")
+	)
+	(embedded_fonts no)
+)
