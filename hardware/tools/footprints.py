@@ -79,9 +79,9 @@ def footprint(name, descr, tags, pads, body_w, body_h, courtyard=0.25, model=Non
     return fp
 
 
-def smd_pad(num, x, y, w, h, shape="roundrect", mask_margin=None, name=""):
+def smd_pad(num, x, y, w, h, shape="roundrect", mask_margin=None, name="", paste=True):
     p = ["pad", Q(num), "smd", shape, ["at", x, y], ["size", w, h],
-         ["layers", Q("F.Cu"), Q("F.Mask"), Q("F.Paste")]]
+         ["layers", Q("F.Cu"), Q("F.Mask")] + ([Q("F.Paste")] if paste else [])]
     if shape == "roundrect":
         p.append(["roundrect_rratio", 0.25])
     if mask_margin is not None:
@@ -133,9 +133,32 @@ def maxm86161_olga():
                      "OLGA MAXM86161 PPG optical", pads, 2.9, 4.3)
 
 
+def battery_pads():
+    """Two bare solder pads for the LiPo leads: pad 1 = +, pad 2 = -. No paste, no part."""
+    name = "BatteryPads_1x02_P4.0mm"
+    pads = [smd_pad("1", -2.0, 0, 2.4, 3.2, name=name, paste=False),
+            smd_pad("2", 2.0, 0, 2.4, 3.2, name=name, paste=False)]
+    extra = []
+    for x, s in ((-2.0, "+"), (2.0, "-")):
+        extra.append(["fp_text", "user", Q(s), ["at", x, -2.5, 0], ["layer", Q("F.SilkS")],
+                      ["uuid", _uid(name, "pol", s)],
+                      ["effects", ["font", ["size", 1.0, 1.0], ["thickness", 0.18]]]])
+    return footprint(name, "LiPo solder pads, 2.4 x 3.2 mm, 4.0 mm pitch. Pad 1 = battery +",
+                     "battery solder pads", pads, 6.6, 3.4, extra=extra)
+
+
+def test_pads_1x06():
+    """Six bare round pads, 1.5 mm, 2.54 mm pitch, for a pogo clip or soldered wires (SWD)."""
+    name = "TestPads_1x06_P2.54mm"
+    pads = [smd_pad(str(i + 1), round(-6.35 + 2.54 * i, 3), 0, 1.5, 1.5, shape="circle", name=name, paste=False)
+            for i in range(6)]
+    return footprint(name, "Six 1.5 mm test pads at 2.54 mm pitch (SWD: GND, VTref, SWDIO, SWDCLK, nRESET, SWO)",
+                     "test pads SWD pogo", pads, 14.6, 1.9)
+
+
 def write_all():
     os.makedirs(OUT, exist_ok=True)
-    for fn in (bq25180_ybg, maxm86161_olga):
+    for fn in (bq25180_ybg, maxm86161_olga, battery_pads, test_pads_1x06):
         fp = fn()
         path = os.path.join(OUT, str(fp[1]) + ".kicad_mod")
         with open(path, "w", encoding="utf-8", newline="\n") as f:

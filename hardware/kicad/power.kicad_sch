@@ -6935,7 +6935,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp no)
+		(dnp yes)
 		(uuid "1c57376e-4a4d-5c56-839b-8fc0fee135a5")
 		(property "Reference" "J2"
 			(at 269.24 41.91 0)
@@ -6946,7 +6946,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "LiPo"
+		(property "Value" "LiPo pads"
 			(at 269.24 44.45 0)
 			(effects
 				(font
@@ -6955,7 +6955,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Connector_JST:JST_PH_S2B-PH-SM4-TB_1x02-1MP_P2.00mm_Horizontal"
+		(property "Footprint" "wearable:BatteryPads_1x02_P4.0mm"
 			(at 266.7 44.45 0)
 			(hide yes)
 			(effects
@@ -6982,25 +6982,7 @@
 				)
 			)
 		)
-		(property "MPN" "S2B-PH-SM4-TB"
-			(at 266.7 44.45 0)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Manufacturer" "JST"
-			(at 266.7 44.45 0)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Note" "Battery with built-in protection (PCM). CHECK POLARITY: JST-PH battery pinouts vary by vendor"
+		(property "Note" "Solder pads, no part fitted: pad 1 = battery +, pad 2 = battery -. Cell must have a protection circuit (PCM). A reversed battery destroys the charger: check before soldering"
 			(at 266.7 44.45 0)
 			(hide yes)
 			(effects

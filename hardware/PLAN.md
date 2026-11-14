@@ -1,6 +1,6 @@
 # Wearable hardware plan — rev A
 
-Status: **plan agreed (see §8). Next: Phase 0 dev-board validation + rev A schematic.** Nothing ordered or laid out yet.
+Status: **rev A schematic, routed board and case are done (see [README.md](README.md)). Nothing ordered yet.**
 
 Goal: turn the breadboard logger (ESP32-C3 Super Mini + 4 breakout sensors, USB-tethered)
 into a battery-powered, wireless wearable on a custom PCB in a 3D-printed case, **without
@@ -144,3 +144,10 @@ notification with Data Length Extension).
 2. **Wear location:** wrist, watch-style case, plus a snap jack for finger EDA electrodes.
 3. **Assembly:** JLCPCB PCBA, so parts are chosen from the JLC/LCSC catalogue where possible.
 4. **Offline logging:** 16 MB QSPI NOR ring buffer for BLE backfill.
+
+Agreed 2026-11-11, replacing the dev-board-first rollout in §6:
+
+5. **Rev A is one wearable-size board** (36 × 42 mm), not a larger dev board first.
+6. **Case:** ordered from a print service (SLA or MJF), closed with screws.
+7. **Battery:** 250 mAh 502030 cell on solder pads.
+8. **Strap:** bars for a 20 mm velcro strap.

@@ -2056,7 +2056,7 @@
 		)
 		(uuid "1a22be25-7af5-5e3c-9655-b1cdd33ee539")
 	)
-	(text "Electrodes: case contacts + external snap-lead jack"
+	(text "Electrodes: M2 screws through the case floor + external snap-lead jack"
 		(exclude_from_sim no)
 		(at 276.86 33.02 0)
 		(effects
@@ -2066,7 +2066,7 @@
 			)
 			(justify left bottom)
 		)
-		(uuid "aafc369a-27f0-5d08-9c3d-0f5783a1e47b")
+		(uuid "7763b09d-68b8-5b09-a5be-867c17a44639")
 	)
 	(rectangle
 		(start 274.32 29.21)
@@ -2078,7 +2078,7 @@
 		(fill
 			(type none)
 		)
-		(uuid "8c5c882d-568d-5270-9bf6-f12ff6e7a540")
+		(uuid "a9ad8232-d39c-5530-b562-c247bf6b023f")
 	)
 	(symbol
 		(lib_id "Device:R")
@@ -4960,7 +4960,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp no)
+		(dnp yes)
 		(uuid "40142576-5fe8-5130-b995-4ae5882871eb")
 		(property "Reference" "E1"
 			(at 283.21 50.8 0)
@@ -4980,7 +4980,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "TestPoint:TestPoint_Pad_D2.0mm"
+		(property "Footprint" "MountingHole:MountingHole_2.2mm_M2_Pad"
 			(at 280.67 55.88 0)
 			(hide yes)
 			(effects
@@ -4999,6 +4999,15 @@
 			)
 		)
 		(property "Description" "test point"
+			(at 280.67 55.88 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Note" "Plated M2 hole. A stainless M2 screw from the skin side is the electrode; its nut on the top pad makes the contact and clamps the board to the case"
 			(at 280.67 55.88 0)
 			(hide yes)
 			(effects
@@ -5047,7 +5056,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp no)
+		(dnp yes)
 		(uuid "5b713c6a-169c-57b4-b8e5-06a84a2879d3")
 		(property "Reference" "E2"
 			(at 289.56 50.8 0)
@@ -5067,7 +5076,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "TestPoint:TestPoint_Pad_D2.0mm"
+		(property "Footprint" "MountingHole:MountingHole_2.2mm_M2_Pad"
 			(at 287.02 55.88 0)
 			(hide yes)
 			(effects
@@ -5086,6 +5095,15 @@
 			)
 		)
 		(property "Description" "test point"
+			(at 287.02 55.88 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Note" "Plated M2 hole. A stainless M2 screw from the skin side is the electrode; its nut on the top pad makes the contact and clamps the board to the case"
 			(at 287.02 55.88 0)
 			(hide yes)
 			(effects

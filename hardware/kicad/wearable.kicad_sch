@@ -225,7 +225,7 @@
 		)
 		(uuid "72a70683-4c1e-5d91-8951-b7b05f5d54ad")
 	)
-	(text "Rev A - development-friendly board. Generated from hardware/tools/gen_schematic.py.\nRails: VBUS (USB 5 V) -> BQ25180 -> VSYS (3.0-4.5 V) -> TPS62840 -> +1V8 (all logic).\nVLED (PPG) and the RGB LED anode run from VSYS.\nI2C bus (400 kHz, 1.8 V): BQ25180 0x6A, MAX17048 0x36, MAXM86161 0x62, BMI270 0x68, TMP117 0x48.\nCustom symbol pinouts checked against vendor datasheets (see tools/customlib.py). None unverified.\nOPEN: LCSC part numbers; MAXM86161 optical-window position (outline 21-100309) for the case."
+	(text "Rev A - wearable-size board (36 x 42 mm). Generated from hardware/tools/gen_schematic.py.\nRails: VBUS (USB 5 V) -> BQ25180 -> VSYS (3.0-4.5 V) -> TPS62840 -> +1V8 (all logic).\nVLED (PPG) and the RGB LED anode run from VSYS.\nI2C bus (400 kHz, 1.8 V): BQ25180 0x6A, MAX17048 0x36, MAXM86161 0x62, BMI270 0x68, TMP117 0x48.\nCustom symbol pinouts checked against vendor datasheets (see tools/customlib.py). None unverified.\nOPEN: LCSC part numbers; MAXM86161 optical-window position (outline 21-100309) for the case."
 		(exclude_from_sim no)
 		(at 30.48 205.74 0)
 		(effects

@@ -94,9 +94,10 @@ d.add(Part("TH1", "Device:Thermistor_NTC", "10k B3435", R0402, {"1": "CHG_TS", "
            note="TS is biased internally (38 uA). Place against the battery; Kelvin GND to U3 GND"))
 C("C2", "10u 25V", "VSYS", "GND", S, g, fp=C0603, note="SYS: 10 uF nominal, >1 uF after DC-bias derating")
 C("C3", "1u", "VBAT", "GND", S, g)
-d.add(Part("J2", "Connector_Generic:Conn_01x02", "LiPo", "Connector_JST:JST_PH_S2B-PH-SM4-TB_1x02-1MP_P2.00mm_Horizontal",
-           {"1": "VBAT", "2": "GND"}, sheet=S, group=g, mpn="S2B-PH-SM4-TB", manufacturer="JST",
-           note="Battery with built-in protection (PCM). CHECK POLARITY: JST-PH battery pinouts vary by vendor"))
+d.add(Part("J2", "Connector_Generic:Conn_01x02", "LiPo pads", "wearable:BatteryPads_1x02_P4.0mm",
+           {"1": "VBAT", "2": "GND"}, sheet=S, group=g, dnp=True,
+           note="Solder pads, no part fitted: pad 1 = battery +, pad 2 = battery -. Cell must have a "
+                "protection circuit (PCM). A reversed battery destroys the charger: check before soldering"))
 # VBAT and VSYS are driven by the BQ25180 power-output pins, so they need no PWR_FLAG
 
 g = "Fuel gauge"
@@ -148,13 +149,11 @@ mcu_pins = {
     "P0.06": "GAUGE_ALRT", "P0.08": "CHG_INT", "P1.09": "TEMP_ALERT",
     # EDA analog (AIN2, AIN3, AIN6) + range select
     "P0.04": "EDA_OUT", "P0.05": "EDA_VREF", "P0.30": "EDA_VEXC_SET", "P1.08": "EDA_RANGE",
-    # spare GPIO to the expansion header
-    "P0.02": "EXP_AIN0", "P0.03": "EXP_AIN1", "P0.28": "EXP_AIN4", "P0.31": "EXP_AIN7",
-    "P0.24": "EXP_P0_24", "P0.25": "EXP_P0_25",
 }
 d.add(Part("U1", "RF_Module:MDBT50Q-1MV2", "MDBT50Q-1MV2", "RF_Module:Raytac_MDBT50Q", mcu_pins,
-           nc=["DCCH", "P0.09", "P0.10", "P0.14", "P0.15", "P0.29", "P1.01", "P1.03",
-               "P1.04", "P1.05", "P1.06", "P1.07", "P1.11", "P1.12", "P1.13", "P1.14"],
+           nc=["DCCH", "P0.02", "P0.03", "P0.09", "P0.10", "P0.14", "P0.15", "P0.24", "P0.25", "P0.28",
+               "P0.29", "P0.31", "P1.01", "P1.03", "P1.04", "P1.05", "P1.06", "P1.07", "P1.11", "P1.12",
+               "P1.13", "P1.14"],
            sheet=S, group=g, mpn="MDBT50Q-1MV2", manufacturer="Raytac",
            note="Normal-voltage mode: VDD=VDDH=1.8 V from the buck, DCCH unused. Antenna keep-out per Raytac datasheet"))
 C("C7", "10u", "+1V8", "GND", S, g, fp=C0603)
@@ -185,16 +184,17 @@ R("R9", "47k", "CHG_INT", "+1V8", S, g)
 R("R10", "47k", "TEMP_ALERT", "+1V8", S, g)
 
 g = "SWD debug + reset/user buttons"
-d.add(Part("J3", "Connector:Conn_ARM_JTAG_SWD_10", "SWD", "Connector_PinHeader_1.27mm:PinHeader_2x05_P1.27mm_Vertical_SMD",
-           {"VTref": "+1V8", "SWDIO/TMS": "SWDIO", "SWCLK/TCK": "SWDCLK", "SWO/TDO": "SWO",
-            "~{RESET}": "nRESET", "GND": "GND", "GNDDetect": "GND"},
-           nc=["KEY", "NC/TDI"], sheet=S, group=g,
-           note="Probe must support 1.8 V targets (e.g. J-Link). Not a 3.3 V-only probe"))
+d.add(Part("J3", "Connector_Generic:Conn_01x06", "SWD pads", "wearable:TestPads_1x06_P2.54mm",
+           {"1": "GND", "2": "+1V8", "3": "SWDIO", "4": "SWDCLK", "5": "nRESET", "6": "SWO"},
+           sheet=S, group=g, dnp=True,
+           note="Bare pads on the skin side, 2.54 mm pitch: use a 6-pin pogo clip or solder wires. "
+                "Probe must support 1.8 V targets (e.g. J-Link). Not a 3.3 V-only probe"))
 d.add(Part("SW1", "Switch:SW_Push", "RESET", "Button_Switch_SMD:SW_SPST_B3U-1000P",
            {"1": "nRESET", "2": "GND"}, sheet=S, group=g, mpn="B3U-1000P", manufacturer="Omron",
-           note="Double-tap enters the UF2 bootloader"))
+           note="Under a pinhole in the lid. Double-tap enters the UF2 bootloader"))
 d.add(Part("SW2", "Switch:SW_Push", "USER", "Button_Switch_SMD:SW_SPST_B3U-1000P",
-           {"1": "BTN_USER", "2": "GND"}, sheet=S, group=g, mpn="B3U-1000P", manufacturer="Omron"))
+           {"1": "BTN_USER", "2": "GND"}, sheet=S, group=g, mpn="B3U-1000P", manufacturer="Omron",
+           note="Pressed by a post on a flexing tab in the lid"))
 
 g = "RGB status LED (anode on VSYS, low-side FETs)"
 d.add(Part("D1", "Device:LED_RABG", "RGB CA", "LED_SMD:LED_RGB_1210",
@@ -208,11 +208,6 @@ for i, (col, net) in enumerate((("R", "LED_RD"), ("G", "LED_GD"), ("B", "LED_BD"
                {"G": "LED_" + col, "S": "GND", "D": net}, sheet=S, group=g, mpn="DMG1012T-7",
                manufacturer="Diodes Inc", note="Vgs(th) <= 1.0 V, so 1.8 V GPIO drive is enough"))
     R("R%d" % (14 + i), "100k", "LED_" + col, "GND", S, g, note="Keeps the LED off during reset")
-
-g = "Expansion header (DNP)"
-d.add(Part("J4", "Connector_Generic:Conn_01x08", "EXP", "Connector_PinHeader_1.27mm:PinHeader_1x08_P1.27mm_Vertical",
-           {"1": "+1V8", "2": "EXP_AIN0", "3": "EXP_AIN1", "4": "EXP_AIN4", "5": "EXP_AIN7",
-            "6": "EXP_P0_24", "7": "EXP_P0_25", "8": "GND"}, sheet=S, group=g, dnp=True))
 
 # =========================================================================== #
 # Sheet: Sensors
@@ -276,9 +271,12 @@ d.add(Part("U11", "Analog_Switch:TS5A3166DCKR", "TS5A3166", "Package_TO_SOT_SMD:
            sheet=S, group=g, mpn="TS5A3166DCKR", manufacturer="TI", note="EDA_RANGE high = low-gain range"))
 C("C23", "100n", "+1V8", "GND", S, g)
 
-g = "Electrodes: case contacts + external snap-lead jack"
-TP("E1", "EDA_E1", S, g, fp="TestPoint:TestPoint_Pad_D2.0mm")
-TP("E2", "EDA_E2", S, g, fp="TestPoint:TestPoint_Pad_D2.0mm")
+g = "Electrodes: M2 screws through the case floor + external snap-lead jack"
+for _ref, _net in (("E1", "EDA_E1"), ("E2", "EDA_E2")):
+    d.add(Part(_ref, "Connector:TestPoint", _net, "MountingHole:MountingHole_2.2mm_M2_Pad", {"1": _net},
+               sheet=S, group=g, dnp=True,
+               note="Plated M2 hole. A stainless M2 screw from the skin side is the electrode; "
+                    "its nut on the top pad makes the contact and clamps the board to the case"))
 d.add(Part("J5", "Connector_Generic:Conn_01x02", "EDA ext", "Connector_JST:JST_SH_SM02B-SRSS-TB_1x02-1MP_P1.00mm_Horizontal",
            {"1": "EDA_E1", "2": "EDA_E2"}, sheet=S, group=g, mpn="SM02B-SRSS-TB", manufacturer="JST",
            note="Finger electrodes for stronger EDA than the wrist"))
@@ -290,7 +288,7 @@ d.add(Part("D3", "Power_Protection:TPD1E05U06DPY", "TPD1E05U06", "Package_SON:Te
            note="Electrode ESD. Leakage adds to the measured current: check the datasheet at 0.9 V"))
 
 # --------------------------------------------------------------------------- #
-d.note("root", "Rev A - development-friendly board. Generated from hardware/tools/gen_schematic.py.\n"
+d.note("root", "Rev A - wearable-size board (36 x 42 mm). Generated from hardware/tools/gen_schematic.py.\n"
        "Rails: VBUS (USB 5 V) -> BQ25180 -> VSYS (3.0-4.5 V) -> TPS62840 -> +1V8 (all logic).\n"
        "VLED (PPG) and the RGB LED anode run from VSYS.\n"
        "I2C bus (400 kHz, 1.8 V): BQ25180 0x6A, MAX17048 0x36, MAXM86161 0x62, BMI270 0x68, TMP117 0x48.\n"
